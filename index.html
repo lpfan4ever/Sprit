@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+  <meta charset="UTF-8">
+<head>
+  <title>Spritpreis</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      background-color: #ffffff;
+    }
+
+    ul {
+      font-family: sans-serif;
+      color: #000000;
+    }
+    .button {
+      background-color: #4CAF50; /* Green */
+      border: none;
+      color: white;
+      padding: 15px 32px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+    }
+  </style>
+</head>
+
+<body> 
+    <input type="button" class="button" id="myBtn" value="Filter" onclick="SortItem()" />
+    <input type="text" id="myInput"/>
+    <button onclick="getLocation()">Try It</button>
+    <p id="gps"></p>
+    <ul>
+    </ul>
+
+  <script>
+    var gps = [[48.272308, 16.405167], //1210
+     [48.251572, 16.443707], //1210,1220
+     [48.298361, 16.372186], //Langenzersdorf
+     [48.326285, 16.446687], //Korneuburg
+     [48.665556, 15.656394], //Horn
+     [48.563583, 16.080280], //Hollabrunn
+     [48.327771, 16.059756], //Tulln
+     [48.388052, 15.638782], //Krems
+     [47.992972, 16.234294], //Baden
+     [48.192182, 15.621803]] //St. Pölten
+
+     var array = []
+     var livegps = []
+
+     function getData() {
+      for (var k = 0; k < gps.length; k++) {
+          let xhr = new XMLHttpRequest();
+          xhr.open('GET', "https://api.e-control.at/sprit/1.0/search/gas-stations/by-address?latitude="+gps[k][0]+"&longitude="+gps[k][1]+"&fuelType=SUP&includeClosed=false", true);
+          xhr.onreadystatechange = function () {
+          if (xhr.readyState == 4 && xhr.status == 200) {
+              let res = JSON.parse(xhr.responseText);
+              Object.entries(res).forEach((entry) => {
+              const [key, value] = entry;
+              var node = document.createElement('li');
+              var text = document.createElement('a');
+              if (value.prices[0] != undefined) {
+                let city = new String(value.location.city).toUpperCase();
+                let lat = xhr.responseURL.split("https://api.e-control.at/sprit/1.0/search/gas-stations/by-address?latitude=")[1].split("&longitude=")[0]
+                let long = xhr.responseURL.split("https://api.e-control.at/sprit/1.0/search/gas-stations/by-address?latitude=")[1].split("&longitude=")[1].split("&fuel")[0]
+                text.textContent = `${value.prices[0].amount}€ ${value.name}, ${value.location.address}, ${value.location.postalCode} ${city}`;
+                if (livegps[0] == parseFloat(lat) && livegps[1] == parseFloat(long)) {
+                  let dis = new String(value.distance)
+                  text.textContent = text.textContent.concat(` Entfernung: ${dis.slice(0, 5)} km`)
+                }
+                node.appendChild(text);
+                document.querySelector('ul').appendChild(node);
+                array.push(text.textContent)
+              }
+              });
+          }
+          }
+          xhr.send();
+      }
+    }
+    
+    var input = document.getElementById("myInput");
+    input.addEventListener("keypress", function(event) {
+      // If the user presses the "Enter" key on the keyboard
+      if (event.key === "Enter") {
+        // Cancel the default action, if needed
+        event.preventDefault();
+        // Trigger the button element with a click
+        document.getElementById("myBtn").click();
+      }
+    });
+
+    function SortItem() {
+        var preis = [];
+        var items = document.getElementsByTagName("li");
+
+        for (var i = 0, l = array.length; i < l; i++) {
+          if (!preis.includes(array[i])) {
+            preis.push(array[i])
+          }
+        }
+        preis.sort();
+        for (var i = 0, l = items.length; i < l; i++) {
+          items[i].parentNode.removeChild(items[i])
+          i -= 1
+          l -= 1
+        }
+        var input = document.getElementById("myInput");
+        var filter = input.value.toUpperCase();
+        for (var i = 0, l = preis.length; i < l; i++) {
+          var text = document.createElement('a');
+          var node = document.createElement('li');
+          text.textContent = preis[i];
+          var address = preis[i].split("€ ")
+          text.setAttribute("href",  "https://maps.google.com/?q="+address[1]);
+          if (address[1].split(",")[2].toUpperCase().indexOf(filter) > -1) {
+            node.appendChild(text);
+            document.querySelector('ul').appendChild(node);
+          } 
+        }
+    }
+    setTimeout(getLocation, 1000);
+    const x = document.getElementById("gps");
+
+    function getLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(showPosition);
+      } else {
+        x.innerHTML = "Geolocation is not supported by this browser.";
+      }
+      getData()
+      setTimeout(SortItem, 1000);
+    }
+    function showPosition(position) {
+      x.innerHTML = "Latitude: " + position.coords.latitude +
+      "<br>Longitude: " + position.coords.longitude;
+      livegps = [position.coords.latitude, position.coords.longitude]
+      var found = false
+      for (var i = 0, l = gps.length; i < l; i++) {
+        if (gps[i][0] == livegps[0] && gps[i][1] == livegps[1]) {
+          found = true
+          break
+        }
+      }
+      if (!found) {
+        gps.push([position.coords.latitude, position.coords.longitude])
+      }
+      getData()
+      setTimeout(SortItem, 1000);
+    }
+  </script>
+</body>
+</html>
